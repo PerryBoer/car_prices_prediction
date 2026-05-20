@@ -505,6 +505,8 @@ def main():
         type='Random Forest'
     )
 
+    print("\n================ Fiat 500 Prediction ================")
+    
     fiat_500_example = pd.DataFrame({
         "Levy": [clean_df["Levy"].median()],
         "Manufacturer": ["FIAT"],
