@@ -29,7 +29,7 @@ from sklearn.linear_model import LinearRegression
 
 DATA_PATH = "car_price_prediction.csv"
 TARGET_COLUMN = "Price"
-PRICE_UPPER_QUANTILE = 0.99
+PRICE_UPPER_QUANTILE = 0.90
 DROP_COLUMNS = ["ID"]
 RANDOM_STATE = 42
 
@@ -63,16 +63,6 @@ def inspect_dataframe(df):
     print(df.dtypes)
 
 
-def inspect_column_values(df, columns, n_values=20):
-    """Print value counts or examples for selected columns."""
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        print(f"\n--- {column} ---")
-        print(df[column].value_counts(dropna=False).head(n_values))
-
-
 def plot_price_distribution(df, title_suffix=""):
     """Plot histogram and boxplot of the original price."""
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -99,6 +89,16 @@ def plot_log_price_distribution(df, title_suffix=""):
     plt.xlabel("log1p(Price)")
     plt.tight_layout()
     plt.show()
+
+
+def inspect_column_values(df, columns, n_values=20):
+    """Print value counts or examples for selected columns."""
+    for column in columns:
+        if column not in df.columns:
+            continue
+
+        print(f"\n--- {column} ---")
+        print(df[column].value_counts(dropna=False).head(n_values))
 
 
 def plot_top_categories(df, column, top_n=15):
@@ -339,34 +339,14 @@ def build_random_forest_model(X):
     ).columns
 
     preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "numeric",
-                "passthrough",
-                numeric_features,
-            ),
-            (
-                "categorical",
-                OneHotEncoder(handle_unknown="ignore"),
-                categorical_features,
-            ),
-        ]
-    )
+        transformers=[("numeric", "passthrough", numeric_features), 
+                      ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical_features,)]
+                      )
 
     model = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            (
-                "regressor",
-                RandomForestRegressor(
-                    n_estimators=200,
-                    random_state=RANDOM_STATE,
-                    n_jobs=-1,
-                    min_samples_leaf=2,
-                ),
-            ),
-        ]
-    )
+        steps=[("preprocessor", preprocessor), 
+               ("regressor", RandomForestRegressor(n_estimators=200,random_state=RANDOM_STATE,n_jobs=-1,min_samples_leaf=2))]
+        )
 
     return model
 
@@ -410,6 +390,10 @@ def main():
         "Doors",
         "Wheel",
         "Color",
+        "Levy",
+        "Mileage",
+        "Engine volume",
+        "Doors",
     ]
 
     inspect_column_values(raw_df, categorical_columns)
@@ -417,17 +401,6 @@ def main():
     plot_top_categories(raw_df, "Manufacturer", top_n=15)
     plot_top_categories(raw_df, "Category", top_n=15)
     plot_top_categories(raw_df, "Fuel type", top_n=15)
-
-
-    print("\n================ SUSPICIOUS RAW COLUMNS ================")
-    suspicious_columns = [
-        "Levy",
-        "Mileage",
-        "Engine volume",
-        "Doors",
-    ]
-
-    inspect_column_values(raw_df, suspicious_columns)
 
     print("\n================ CLEANING DATA ================")
     clean_df = clean_dataframe(
@@ -526,10 +499,16 @@ def main():
         "Airbags": [4],
     })
 
+    # log_prediction = random_forest_model.predict(fiat_500_example)
+    lr_prediction = baseline_model.predict(fiat_500_example)
+    predicted_price = np.expm1(lr_prediction)
+
+    print(f"Linear regression predicted Fiat 500 price: {predicted_price[0]:,.2f}")
+
     log_prediction = random_forest_model.predict(fiat_500_example)
     predicted_price = np.expm1(log_prediction)
 
-    print(f"Predicted Fiat 500 price: {predicted_price[0]:,.2f}")
+    print(f"Random forest predicted Fiat 500 price: {predicted_price[0]:,.2f}")
 
 
 if __name__ == "__main__":
